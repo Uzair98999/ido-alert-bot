@@ -12,6 +12,31 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 URL = "https://cryptorank.io/upcoming-ico"
 SEEN_FILE = "seen_sales.json"
 
+GOOD_WORDS = [
+    "binance",
+    "dao maker",
+    "seedify",
+    "polkastarter",
+    "coinlist",
+    "bybit",
+    "gate",
+    "ai",
+    "zk",
+    "defi",
+    "gaming",
+    "infra",
+    "layer 2",
+    "depin",
+    "rwa"
+]
+
+BAD_WORDS = [
+    "meme",
+    "casino",
+    "betting",
+    "gambling"
+]
+
 
 def load_seen():
     if not os.path.exists(SEEN_FILE):
@@ -34,6 +59,15 @@ def get_page_html():
     response = requests.get(URL, headers=headers, timeout=30)
     response.raise_for_status()
     return response.text
+
+
+def looks_high_quality(sale):
+    text = f"{sale.get('name', '')} {sale.get('type', '')} {sale.get('url', '')}".lower()
+
+    has_good_word = any(word in text for word in GOOD_WORDS)
+    has_bad_word = any(word in text for word in BAD_WORDS)
+
+    return has_good_word and not has_bad_word
 
 
 def extract_sales_from_html(html):
@@ -95,14 +129,15 @@ def main():
     print(f"Found {len(sales)} possible sales")
 
     new_sales = [sale for sale in sales if sale["id"] not in seen_ids]
+    filtered_sales = [sale for sale in new_sales if looks_high_quality(sale)]
 
-    if not new_sales:
-        print("No new sales found.")
+    if not filtered_sales:
+        print("No high-quality sales found.")
         return
 
-    for sale in new_sales[:10]:
+    for sale in filtered_sales[:10]:
         msg = (
-            f"🚀 New {sale['type']} found\n\n"
+            f"🚀 High-quality {sale['type']} found\n\n"
             f"Name: {sale['name']}\n"
             f"Date: {sale['date']}\n"
             f"Link: {sale['url']}"
@@ -111,7 +146,7 @@ def main():
         seen_ids.append(sale["id"])
 
     save_seen(seen_ids)
-    print(f"Sent {len(new_sales[:10])} alerts.")
+    print(f"Sent {len(filtered_sales[:10])} alerts.")
 
 
 if __name__ == "__main__":
